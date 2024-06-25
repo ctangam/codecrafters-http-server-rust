@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 // Uncomment this block to pass the first stage
 use std::net::TcpListener;
 use std::io::prelude::*;
@@ -20,9 +21,16 @@ fn main() {
                 stream.read_to_string(&mut buffer).unwrap();
                 println!("request: {}", buffer);
 
-                let start_line = buffer.lines().next().unwrap();
-                let (method, path, _) = start_line.split_whitespace().collect_tuple().unwrap();
-                println!("method: {}, path: {}", method, path);
+                let (request_line, remained) = buffer.split_once("\r\n").unwrap();
+                let mut request_line = request_line.split_whitespace().take(3);
+                let method = request_line.next().unwrap();
+                let path = request_line.next().unwrap();
+                let version = request_line.next().unwrap();
+
+                let (headers, body) = remained.split_once("\r\n\r\n").unwrap();
+                let headers: HashMap<&str, &str> = headers.split("\r\n").map(|h| {
+                    h.split_once(": ").unwrap()
+                }).collect();
 
                 match path {
                     "/" => {
