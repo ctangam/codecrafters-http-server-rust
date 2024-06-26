@@ -87,15 +87,28 @@ impl ToString for Response {
             response.push_str(&format!("{}: {}\r\n", k, v));
         }
         response.push_str("\r\n");
-        response.push_str(&String::from_utf8_lossy(&self.body));
+        response.push_str(&hex::encode(&self.body));
         response
     }
 }
 
+impl Into<Vec<u8>> for Response {
+    fn into(self) -> Vec<u8> {
+        let mut response = String::new();
+        response.push_str(&format!("{} {}\r\n", self.version, self.status));
+        for (k, v) in &self.headers {
+            response.push_str(&format!("{}: {}\r\n", k, v));
+        }
+        response.push_str("\r\n");
+
+        let mut bytes = response.into_bytes();
+        let mut body = self.body.clone();
+        bytes.append(&mut body);
+        bytes
+    }
+}
+
 fn main() {
-
-    
-
     let listener = TcpListener::bind("127.0.0.1:4221").unwrap();
     
     for stream in listener.incoming() {
@@ -150,7 +163,7 @@ fn handle_connection(mut stream: std::net::TcpStream) {
             if request.headers.contains_key("Accept-Encoding") && request.headers.get("Accept-Encoding").unwrap().contains("gzip") {
                 headers.insert("Content-Encoding".to_string(), "gzip".to_string());
                 let mut encoder = GzEncoder::new(Vec::new(), Compression::default());
-                encoder.write(&body[..]);
+                encoder.write(&body[..]).unwrap();
                 body = encoder.finish().unwrap();
             }
             headers.insert("Content-Type".to_string(), "text/plain".to_string());
@@ -161,8 +174,10 @@ fn handle_connection(mut stream: std::net::TcpStream) {
                 headers,
                 body: body,
             };
+            println!("response: {}", response.to_string());
 
-            stream.write_all(&response.to_string().as_bytes()).unwrap();
+            let bytes: Vec<u8> = response.into();
+            stream.write_all(&bytes[..]).unwrap();
         }
         (Method::GET, path) if path.starts_with("/files") => {
             let file_path = path.strip_prefix("/files/").unwrap();
