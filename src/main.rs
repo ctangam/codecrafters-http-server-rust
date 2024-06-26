@@ -117,8 +117,8 @@ fn handle_connection(mut stream: std::net::TcpStream) {
 
     let request = Request::from_str(&buffer).unwrap();
 
-    match &request.path[..] {
-        "/" => {
+    match (request.method, &request.path[..]) {
+        (Method::GET, "/") => {
             let response = Response {
                 version: request.version,
                 status: "200 OK".to_string(),
@@ -127,7 +127,7 @@ fn handle_connection(mut stream: std::net::TcpStream) {
             };
             stream.write_all(&response.to_string().as_bytes()).unwrap();
         }
-        "/user-agent" => {
+        (Method::GET, "/user-agent") => {
             let user_agent = request.headers.get("User-Agent").unwrap();
             let mut headers = HashMap::new();
             headers.insert("Content-Type".to_string(), "text/plain".to_string());
@@ -140,7 +140,7 @@ fn handle_connection(mut stream: std::net::TcpStream) {
             };
             stream.write_all(&response.to_string().as_bytes()).unwrap();
         }
-        path if path.starts_with("/echo") => {
+        (Method::GET, path) if path.starts_with("/echo") => {
             let uri = path.strip_prefix("/echo/").unwrap();
         
             let mut headers = HashMap::new();
@@ -155,7 +155,7 @@ fn handle_connection(mut stream: std::net::TcpStream) {
 
             stream.write_all(&response.to_string().as_bytes()).unwrap();
         }
-        path if path.starts_with("/files") => {
+        (Method::GET, path) if path.starts_with("/files") => {
             let file_path = path.strip_prefix("/files/").unwrap();
             let args: Vec<String> = std::env::args().collect_vec();
             let file_dir = args[2].clone();
@@ -177,6 +177,16 @@ fn handle_connection(mut stream: std::net::TcpStream) {
             };
 
             stream.write_all(&response.to_string().as_bytes()).unwrap();
+        }
+        (Method::POST, path) if path.starts_with("/files") => {
+            let file_path = path.strip_prefix("/files/").unwrap();
+            let args: Vec<String> = std::env::args().collect_vec();
+            let file_dir = args[2].clone();
+            let file_path = file_dir + file_path;
+            let mut file = std::fs::File::create(file_path).unwrap();
+            file.write_all(&request.body).unwrap();
+            let response = "HTTP/1.1 201 Created\r\n\r\n";
+            stream.write_all(response.as_bytes()).unwrap();
         }
         _ => {
             let response = "HTTP/1.1 404 Not Found\r\n\r\n";
