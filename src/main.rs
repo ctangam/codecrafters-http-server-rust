@@ -90,21 +90,16 @@ impl ToString for Response {
 }
 
 fn main() {
-    let args = std::env::args().collect_vec();
 
-    if args.len() < 3 {
-        panic!("Usage: {} --directory <file_dir>", args[0]);
-    }
-    println!("args: {:?}", args);
+    
 
     let listener = TcpListener::bind("127.0.0.1:4221").unwrap();
     
     for stream in listener.incoming() {
-        let file_dir = args[2].clone();
         match stream {
             Ok(stream) => {
                 thread::spawn(move || {
-                    handle_connection(stream, file_dir);
+                    handle_connection(stream);
                 });
             }
             Err(e) => {
@@ -114,7 +109,7 @@ fn main() {
     }
 }
 
-fn handle_connection(mut stream: std::net::TcpStream, file_dir: String) {
+fn handle_connection(mut stream: std::net::TcpStream) {
     let mut buffer = [0; 8192];
     stream.read(&mut buffer).unwrap();
     let buffer = String::from_utf8_lossy(&buffer);
@@ -162,6 +157,8 @@ fn handle_connection(mut stream: std::net::TcpStream, file_dir: String) {
         }
         path if path.starts_with("/files") => {
             let file_path = path.strip_prefix("/files/").unwrap();
+            let args: Vec<String> = std::env::args().collect_vec();
+            let file_dir = args[2].clone();
             let file_path = file_dir + file_path;
             if !Path::new(&file_path).exists() {
                 let response = "HTTP/1.1 404 Not Found\r\n\r\n";
