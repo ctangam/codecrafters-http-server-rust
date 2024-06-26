@@ -17,8 +17,9 @@ fn main() {
     for stream in listener.incoming() {
         match stream {
             Ok(mut stream) => {
-                let mut buffer = String::new();
-                stream.read_to_string(&mut buffer).unwrap();
+                let mut buffer = [0; 8192];
+                stream.read(&mut buffer).unwrap();
+                let buffer = String::from_utf8_lossy(&buffer);
                 println!("request: {}", buffer);
 
                 let (request_line, remained) = buffer.split_once("\r\n").unwrap();
