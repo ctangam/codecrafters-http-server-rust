@@ -144,6 +144,9 @@ fn handle_connection(mut stream: std::net::TcpStream) {
             let uri = path.strip_prefix("/echo/").unwrap();
         
             let mut headers = HashMap::new();
+            if request.headers.contains_key("Accept-Encoding") && request.headers.get("Accept-Encoding").unwrap() == "gzip" {
+                headers.insert("Content-Encoding".to_string(), "gzip".to_string());
+            }
             headers.insert("Content-Type".to_string(), "text/plain".to_string());
             headers.insert("Content-Length".to_string(), uri.len().to_string());
             let response = Response {
