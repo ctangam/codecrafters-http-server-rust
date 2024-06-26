@@ -1,5 +1,6 @@
 use core::panic;
 use std::collections::HashMap;
+use std::f64::consts::E;
 use std::fmt::Formatter;
 // Uncomment this block to pass the first stage
 use std::net::TcpListener;
@@ -9,6 +10,8 @@ use std::str::FromStr;
 use std::thread;
 
 use anyhow::Error;
+use flate2::write::GzEncoder;
+use flate2::Compression;
 use itertools::Itertools;
 
 enum Method {
@@ -141,19 +144,22 @@ fn handle_connection(mut stream: std::net::TcpStream) {
             stream.write_all(&response.to_string().as_bytes()).unwrap();
         }
         (Method::GET, path) if path.starts_with("/echo") => {
-            let uri = path.strip_prefix("/echo/").unwrap();
+            let mut body = path.strip_prefix("/echo/").unwrap().as_bytes().to_vec();
         
             let mut headers = HashMap::new();
             if request.headers.contains_key("Accept-Encoding") && request.headers.get("Accept-Encoding").unwrap().contains("gzip") {
                 headers.insert("Content-Encoding".to_string(), "gzip".to_string());
+                let mut encoder = GzEncoder::new(Vec::new(), Compression::default());
+                encoder.write(&body[..]);
+                body = encoder.finish().unwrap();
             }
             headers.insert("Content-Type".to_string(), "text/plain".to_string());
-            headers.insert("Content-Length".to_string(), uri.len().to_string());
+            headers.insert("Content-Length".to_string(), body.len().to_string());
             let response = Response {
                 version: request.version,
                 status: "200 OK".to_string(),
                 headers,
-                body: uri.as_bytes().to_vec(),
+                body: body,
             };
 
             stream.write_all(&response.to_string().as_bytes()).unwrap();
