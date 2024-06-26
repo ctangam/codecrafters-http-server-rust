@@ -154,8 +154,10 @@ fn handle_connection(mut stream: std::net::TcpStream) {
                 headers: headers,
                 body: user_agent.as_bytes().to_vec(),
             };
-            stream.write_all(&response.to_string().as_bytes()).unwrap();
-        }
+
+            let bytes: Vec<u8> = response.into();
+            stream.write_all(&bytes[..]).unwrap();
+            stream.flush().unwrap();        }
         (Method::GET, path) if path.starts_with("/echo") => {
             let mut body = path.strip_prefix("/echo/").unwrap().as_bytes().to_vec();
         
@@ -178,6 +180,7 @@ fn handle_connection(mut stream: std::net::TcpStream) {
 
             let bytes: Vec<u8> = response.into();
             stream.write_all(&bytes[..]).unwrap();
+            stream.flush().unwrap();
         }
         (Method::GET, path) if path.starts_with("/files") => {
             let file_path = path.strip_prefix("/files/").unwrap();
@@ -200,7 +203,9 @@ fn handle_connection(mut stream: std::net::TcpStream) {
                 body: file,
             };
 
-            stream.write_all(&response.to_string().as_bytes()).unwrap();
+            let bytes: Vec<u8> = response.into();
+            stream.write_all(&bytes[..]).unwrap();
+            stream.flush().unwrap();        
         }
         (Method::POST, path) if path.starts_with("/files") => {
             let file_path = path.strip_prefix("/files/").unwrap();
