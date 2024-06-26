@@ -113,12 +113,12 @@ fn main() {
                         let uri = path.strip_prefix("/echo/").unwrap();
                         
                         let mut headers = HashMap::new();
-                        headers.insert("Content-Type", "text/plain".to_string());
-                        headers.insert("Content-Length", uri.len().to_string());
+                        headers.insert("Content-Type".to_string(), "text/plain".to_string());
+                        headers.insert("Content-Length".to_string(), uri.len().to_string());
                         let response = Response {
                             version: request.version,
                             status: "200 OK".to_string(),
-                            headers: HashMap::new(),
+                            headers,
                             body: uri.as_bytes().to_vec(),
                         };
 
