@@ -1,8 +1,10 @@
+use core::panic;
 use std::collections::HashMap;
 use std::fmt::Formatter;
 // Uncomment this block to pass the first stage
 use std::net::TcpListener;
 use std::io::prelude::*;
+use std::path::Path;
 use std::str::FromStr;
 use std::thread;
 
@@ -88,13 +90,21 @@ impl ToString for Response {
 }
 
 fn main() {
+    let args = std::env::args().collect_vec();
+
+    if args.len() < 3 {
+        panic!("Usage: {} --directory <file_dir>", args[0]);
+    }
+    println!("args: {:?}", args);
+
     let listener = TcpListener::bind("127.0.0.1:4221").unwrap();
     
     for stream in listener.incoming() {
+        let file_dir = args[2].clone();
         match stream {
             Ok(stream) => {
                 thread::spawn(move || {
-                    handle_connection(stream);
+                    handle_connection(stream, file_dir);
                 });
             }
             Err(e) => {
@@ -104,7 +114,7 @@ fn main() {
     }
 }
 
-fn handle_connection(mut stream: std::net::TcpStream) {
+fn handle_connection(mut stream: std::net::TcpStream, file_dir: String) {
     let mut buffer = [0; 8192];
     stream.read(&mut buffer).unwrap();
     let buffer = String::from_utf8_lossy(&buffer);
@@ -146,6 +156,27 @@ fn handle_connection(mut stream: std::net::TcpStream) {
                 status: "200 OK".to_string(),
                 headers,
                 body: uri.as_bytes().to_vec(),
+            };
+
+            stream.write_all(&response.to_string().as_bytes()).unwrap();
+        }
+        path if path.starts_with("/files") => {
+            let file_path = path.strip_prefix("/files/").unwrap();
+            let file_path = file_dir + file_path;
+            if !Path::new(&file_path).exists() {
+                let response = "HTTP/1.1 404 Not Found\r\n\r\n";
+                stream.write_all(response.as_bytes()).unwrap();
+                return;
+            }
+            let file = std::fs::read(file_path).unwrap();
+            let mut headers = HashMap::new();
+            headers.insert("Content-Type".to_string(), "application/octet-stream".to_string());
+            headers.insert("Content-Length".to_string(), file.len().to_string());
+            let response = Response {
+                version: request.version,
+                status: "200 OK".to_string(),
+                headers,
+                body: file,
             };
 
             stream.write_all(&response.to_string().as_bytes()).unwrap();
