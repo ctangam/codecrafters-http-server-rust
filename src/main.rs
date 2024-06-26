@@ -106,8 +106,26 @@ fn main() {
 
                 match &request.path[..] {
                     "/" => {
-                        let response = "HTTP/1.1 200 OK\r\n\r\n";
-                        stream.write_all(response.as_bytes()).unwrap();
+                        let response = Response {
+                            version: request.version,
+                            status: "200 OK".to_string(),
+                            headers: HashMap::new(),
+                            body: vec![],
+                        };
+                        stream.write_all(&response.to_string().as_bytes()).unwrap();
+                    }
+                    "/user-agent" => {
+                        let user_agent = request.headers.get("User-Agent").unwrap();
+                        let mut headers = HashMap::new();
+                        headers.insert("Content-Type".to_string(), "text/plain".to_string());
+                        headers.insert("Content-Length".to_string(), user_agent.len().to_string());
+                        let response = Response {
+                            version: request.version,
+                            status: "200 OK".to_string(),
+                            headers: headers,
+                            body: user_agent.as_bytes().to_vec(),
+                        };
+                        stream.write_all(&response.to_string().as_bytes()).unwrap();
                     }
                     path if path.starts_with("/echo") => {
                         let uri = path.strip_prefix("/echo/").unwrap();
