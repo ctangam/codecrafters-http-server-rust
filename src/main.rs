@@ -39,7 +39,7 @@ fn main() {
                         stream.write_all(response.as_bytes()).unwrap();
                     }
                     _ => {
-                        let response = "HTTP/1.1 404 NOT FOUND\r\n\r\n";
+                        let response = "HTTP/1.1 404 Not Found\r\n\r\n";
                         stream.write_all(response.as_bytes()).unwrap();
                     }
                 }
