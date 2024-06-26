@@ -4,6 +4,7 @@ use std::fmt::Formatter;
 use std::net::TcpListener;
 use std::io::prelude::*;
 use std::str::FromStr;
+use std::thread;
 
 use anyhow::Error;
 use itertools::Itertools;
@@ -87,70 +88,71 @@ impl ToString for Response {
 }
 
 fn main() {
-    // You can use print statements as follows for debugging, they'll be visible when running tests.
-    println!("Logs from your program will appear here!");
-
-    // Uncomment this block to pass the first stage
-    
     let listener = TcpListener::bind("127.0.0.1:4221").unwrap();
     
     for stream in listener.incoming() {
         match stream {
-            Ok(mut stream) => {
-                let mut buffer = [0; 8192];
-                stream.read(&mut buffer).unwrap();
-                let buffer = String::from_utf8_lossy(&buffer);
-                println!("request: {}", buffer);
-
-                let request = Request::from_str(&buffer).unwrap();
-
-                match &request.path[..] {
-                    "/" => {
-                        let response = Response {
-                            version: request.version,
-                            status: "200 OK".to_string(),
-                            headers: HashMap::new(),
-                            body: vec![],
-                        };
-                        stream.write_all(&response.to_string().as_bytes()).unwrap();
-                    }
-                    "/user-agent" => {
-                        let user_agent = request.headers.get("User-Agent").unwrap();
-                        let mut headers = HashMap::new();
-                        headers.insert("Content-Type".to_string(), "text/plain".to_string());
-                        headers.insert("Content-Length".to_string(), user_agent.len().to_string());
-                        let response = Response {
-                            version: request.version,
-                            status: "200 OK".to_string(),
-                            headers: headers,
-                            body: user_agent.as_bytes().to_vec(),
-                        };
-                        stream.write_all(&response.to_string().as_bytes()).unwrap();
-                    }
-                    path if path.starts_with("/echo") => {
-                        let uri = path.strip_prefix("/echo/").unwrap();
-                        
-                        let mut headers = HashMap::new();
-                        headers.insert("Content-Type".to_string(), "text/plain".to_string());
-                        headers.insert("Content-Length".to_string(), uri.len().to_string());
-                        let response = Response {
-                            version: request.version,
-                            status: "200 OK".to_string(),
-                            headers,
-                            body: uri.as_bytes().to_vec(),
-                        };
-
-                        stream.write_all(&response.to_string().as_bytes()).unwrap();
-                    }
-                    _ => {
-                        let response = "HTTP/1.1 404 Not Found\r\n\r\n";
-                        stream.write_all(response.as_bytes()).unwrap();
-                    }
-                }
+            Ok(stream) => {
+                thread::spawn(move || {
+                    handle_connection(stream);
+                });
             }
             Err(e) => {
                 println!("error: {}", e);
             }
+        }
+    }
+}
+
+fn handle_connection(mut stream: std::net::TcpStream) {
+    let mut buffer = [0; 8192];
+    stream.read(&mut buffer).unwrap();
+    let buffer = String::from_utf8_lossy(&buffer);
+    println!("request: {}", buffer);
+
+    let request = Request::from_str(&buffer).unwrap();
+
+    match &request.path[..] {
+        "/" => {
+            let response = Response {
+                version: request.version,
+                status: "200 OK".to_string(),
+                headers: HashMap::new(),
+                body: vec![],
+            };
+            stream.write_all(&response.to_string().as_bytes()).unwrap();
+        }
+        "/user-agent" => {
+            let user_agent = request.headers.get("User-Agent").unwrap();
+            let mut headers = HashMap::new();
+            headers.insert("Content-Type".to_string(), "text/plain".to_string());
+            headers.insert("Content-Length".to_string(), user_agent.len().to_string());
+            let response = Response {
+                version: request.version,
+                status: "200 OK".to_string(),
+                headers: headers,
+                body: user_agent.as_bytes().to_vec(),
+            };
+            stream.write_all(&response.to_string().as_bytes()).unwrap();
+        }
+        path if path.starts_with("/echo") => {
+            let uri = path.strip_prefix("/echo/").unwrap();
+        
+            let mut headers = HashMap::new();
+            headers.insert("Content-Type".to_string(), "text/plain".to_string());
+            headers.insert("Content-Length".to_string(), uri.len().to_string());
+            let response = Response {
+                version: request.version,
+                status: "200 OK".to_string(),
+                headers,
+                body: uri.as_bytes().to_vec(),
+            };
+
+            stream.write_all(&response.to_string().as_bytes()).unwrap();
+        }
+        _ => {
+            let response = "HTTP/1.1 404 Not Found\r\n\r\n";
+            stream.write_all(response.as_bytes()).unwrap();
         }
     }
 }
