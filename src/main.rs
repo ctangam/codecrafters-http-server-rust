@@ -111,8 +111,8 @@ fn main() {
 
 fn handle_connection(mut stream: std::net::TcpStream) {
     let mut buffer = [0; 8192];
-    stream.read(&mut buffer).unwrap();
-    let buffer = String::from_utf8_lossy(&buffer);
+    let n = stream.read(&mut buffer).unwrap();
+    let buffer = String::from_utf8_lossy(&buffer[..n]);
     println!("request: {}", buffer);
 
     let request = Request::from_str(&buffer).unwrap();
